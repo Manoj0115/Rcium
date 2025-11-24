@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Arcium Quiz — Umbra Learn</title>
+  <style>
+    :root{
+      --bg:#f3f4f6; --card:#fff; --primary:#2563eb; --muted:#6b7280;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:var(--bg);color:#111}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:var(--card);max-width:780px;width:100%;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.08);padding:28px}
+    h1{margin:0 0 8px;font-size:22px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+    .q{font-size:18px;margin:14px 0 18px}
+    .options{display:grid;gap:10px}
+    .opt{background:#f8fafc;border:1px solid #e6edf8;padding:12px 14px;border-radius:10px;text-align:left;cursor:pointer;transition:transform .08s,box-shadow .08s}
+    .opt:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(37,99,235,0.08)}
+    .opt.selected{background:rgba(37,99,235,0.08);border-color:rgba(37,99,235,0.22)}
+    .btnrow{display:flex;gap:12px;margin-top:18px}
+    button.btn{flex:1;padding:12px 14px;border-radius:10px;border:0;font-weight:600;cursor:pointer}
+    .btn.primary{background:var(--primary);color:#fff}
+    .btn.ghost{background:transparent;border:1px solid #e5e7eb;color:#111}
+    .meta{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:13px}
+    .center{text-align:center}
+    .score{font-size:40px;font-weight:700;margin:10px 0}
+    footer{margin-top:16px;text-align:center;font-size:13px;color:var(--muted)}
+    @media (max-width:520px){.card{padding:18px}.q{font-size:16px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="app">
+      <div id="quiz">
+        <h1>Arcium Quiz</h1>
+        <p class="lead">Practice Umbra & Arcium concepts — 5 questions. Click an option, then Next.</p>
+
+        <div class="meta">
+          <div id="progress">Question 1 / 5</div>
+          <div id="credits">Score: 0</div>
+        </div>
+
+        <div class="q" id="questionText">Loading...</div>
+        <div class="options" id="options"></div>
+
+        <div class="btnrow">
+          <button class="btn ghost" id="prevBtn" disabled>Previous</button>
+          <button class="btn primary" id="nextBtn" disabled>Next</button>
+        </div>
+      </div>
+
+      <div id="result" style="display:none" class="center">
+        <h1>Quiz Complete!</h1>
+        <p class="lead">Great work — you reviewed important Arcium concepts.</p>
+        <div class="score" id="finalScore">0 / 5</div>
+        <button class="btn primary" id="restartBtn">Restart Quiz</button>
+      </div>
+
+      <footer>
+        Built for the Arcium community — share in <strong>#📣│content-share</strong>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    // Questions (5) - index matches answers (0-based)
+    const questions = [
+      {
+        q: "What core problem does Arcium solve in modern data privacy?",
+        options: [
+          "Storing data more cheaply",
+          "Allowing computation on data without decrypting it",
+          "Replacing blockchains",
+          "Speeding up cloud servers"
+        ],
+        answer: 1
+      },
+      {
+        q: "How does Arcium eliminate single-point trust in data processing?",
+        options: [
+          "By using a single central server",
+          "By decentralizing encrypted computation across many nodes",
+          "By letting users share passwords",
+          "By removing encryption entirely"
+        ],
+        answer: 1
+      },
+      {
+        q: "Why is Arcium important for AI workloads?",
+        options: [
+          "AI can process encrypted data safely",
+          "It makes AI models cheaper",
+          "It replaces GPUs",
+          "It creates public datasets"
+        ],
+        answer: 0
+      },
+      {
+        q: "Which shift does Arcium bring to digital privacy?",
+        options: [
+          "Privacy becomes the default",
+          "Everything must be public",
+          "Users must trust corporations",
+          "Data must be decrypted for analysis"
+        ],
+        answer: 0
+      },
+      {
+        q: "Why is Arcium suitable for healthcare & finance?",
+        options: [
+          "It gives operators full access to raw data",
+          "It uses cryptographic guarantees to keep data encrypted during computation",
+          "It stores no encrypted data",
+          "It requires no regulation"
+        ],
+        answer: 1
+      }
+    ];
+
+    // State
+    let step = 0;
+    let score = 0;
+    const selections = new Array(questions.length).fill(null);
+
+    // UI elements
+    const progressEl = document.getElementById('progress');
+    const creditsEl = document.getElementById('credits');
+    const questionText = document.getElementById('questionText');
+    const optionsEl = document.getElementById('options');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const quizEl = document.getElementById('quiz');
+    const resultEl = document.getElementById('result');
+    const finalScoreEl = document.getElementById('finalScore');
+    const restartBtn = document.getElementById('restartBtn');
+
+    function renderQuestion() {
+      const item = questions[step];
+      progressEl.textContent = `Question ${step + 1} / ${questions.length}`;
+      creditsEl.textContent = `Score: ${score}`;
+      questionText.textContent = item.q;
+
+      optionsEl.innerHTML = '';
+      item.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'opt';
+        btn.type = 'button';
+        btn.textContent = opt;
+        btn.dataset.idx = idx;
+        if (selections[step] === idx) btn.classList.add('selected');
+        btn.addEventListener('click', () => {
+          // mark selection
+          selections[step] = idx;
+          // update buttons visuals
+          Array.from(optionsEl.children).forEach(ch => ch.classList.remove('selected'));
+          btn.classList.add('selected');
+          nextBtn.disabled = false;
+        });
+        optionsEl.appendChild(btn);
+      });
+
+      prevBtn.disabled = step === 0;
+      nextBtn.disabled = selections[step] === null;
+      nextBtn.textContent = (step === questions.length - 1) ? 'Finish' : 'Next';
+    }
+
+    function showResult() {
+      quizEl.style.display = 'none';
+      resultEl.style.display = 'block';
+      finalScoreEl.textContent = `${score} / ${questions.length}`;
+    }
+
+    prevBtn.addEventListener('click', () => {
+      if (step === 0) return;
+      step--;
+      renderQuestion();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      // if no selection, ignore
+      const sel = selections[step];
+      if (sel === null) return;
+      // update score only when moving forward from a question not previously graded
+      // to manage going back and changing answers, recalc score fresh
+      // recalc score after possible change
+      score = 0;
+      for (let i = 0; i < questions.length; i++) {
+        if (selections[i] === questions[i].answer) score++;
+      }
+      // move on or finish
+      if (step < questions.length - 1) {
+        step++;
+        renderQuestion();
+      } else {
+        // finished
+        showResult();
+      }
+    });
+
+    restartBtn.addEventListener('click', () => {
+      step = 0;
+      score = 0;
+      for (let i = 0; i < selections.length; i++) selections[i] = null;
+      resultEl.style.display = 'none';
+      quizEl.style.display = 'block';
+      renderQuestion();
+    });
+
+    // initial render
+    renderQuestion();
+  </script>
+</body>
+</html>
